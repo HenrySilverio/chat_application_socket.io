@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import socket from 'socket.io-client';
+import { useState, useEffect, useMemo, useCallback } from "react";
+import io from 'socket.io-client';
 import { useLocation } from "react-router-dom";
 
 import TextContainer from '../TextContainer/TextContainer';
@@ -9,7 +9,7 @@ import Input from '../Input/Input';
 
 
 import './Chat.css'
-let io;
+let socket;
 
 function useQuery() {
     const { search } = useLocation()
@@ -19,63 +19,45 @@ function useQuery() {
 
 function Chat() {
     let query = useQuery();
-    const [name, setName] = useState('');
-    const [room, setRoom] = useState('');
+    const [name, setName] = useState(query.get("name"));
+    const [room, setRoom] = useState(query.get("room"));
     const [users, setUsers] = useState('');
     const [message, setMessage] = useState('');
     const [messages, setMessages] = useState([]);
-    const ENDPOINT = 'http://localhost:3002/';
 
 
-    const chat = (() => {
-        const name = query.get("name")
-        const room = query.get("room")
-
-        setName(name)
-        setRoom(room)
-
-        io = socket('http://localhost:3002/')
-
-        io.emit('join', { name, room });
-
-    })
     useEffect(() => {
-        chat()
-       /*  return () => {
-            socket.emit('disconnect')
+        /* const name = query.get("name")
+        const room = query.get("room") */
 
-            socket.off()
-        } */
 
+        socket = io('http://localhost:3002/')
+
+        socket.emit('join', { name, room }, (error) => {
+            if (error) {
+                alert(error);
+            }
+        });
     }, [])
 
-   /*  useEffect(() => {
-        socket = io(ENDPOINT)
-
-        socket.emit('join', { name, room }, () => {
-
+    useEffect(() => {
+        socket.on('message', message => {
+            setMessages(messages => [...messages, message]);
         });
-        return () => {
-            socket.emit('disconnect')
 
-            socket.off()
-        }
+        socket.on("roomData", ({ users }) => {
+            setUsers(users);
+        });
+    }, []);
 
-    }, [ENDPOINT])
- */
-     useEffect(() => {
-        socket.on('message', (message) => {
-            setMessages([...messages, message])
-        })
-    }, [messages])
+    const sendMessage = (event) => {
+        event.preventDefault();
 
-    const sendMessage = (e) => {
-        e.preventDefault();
-        
         if (message) {
-            io.emit('sendMessage', message, () => setMessage(''));
-        } 
+            socket.emit('sendMessage', message, () => setMessage(''));
+        }
     }
+
 
     return (
         <div className="outerContainer">
